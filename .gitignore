@@ -1,0 +1,12 @@
+node_modules/
+dist/
+build/
+.DS_Store
+__pycache__/
+*.pyc
+venv/
+.env
+test_vigil.db
+mobile-app/node_modules/
+mobile-app/dist/
+backend/uploads/

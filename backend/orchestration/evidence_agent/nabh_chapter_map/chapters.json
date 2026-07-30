@@ -1,0 +1,14 @@
+{
+  "round": {
+    "chapter": "COP",
+    "element": "Care of Patients"
+  },
+  "consent": {
+    "chapter": "PRE",
+    "element": "Patient Rights and Education"
+  },
+  "med_order": {
+    "chapter": "MOM",
+    "element": "Management of Medication"
+  }
+}

@@ -1,0 +1,23 @@
+[
+  {
+    "input": "Patient refused blood pressure check, said they wanted to sleep.",
+    "expected_output": {
+      "status": "refused",
+      "reason": "Patient refused based on note"
+    }
+  },
+  {
+    "input": "HR is 85, BP 120/80",
+    "expected_output": {
+      "vitals.bp": "120/80 (extracted)",
+      "vitals.hr": 85
+    }
+  },
+  {
+    "input": "Patient is asleep, will try again later.",
+    "expected_output": {
+      "status": "delayed",
+      "reason": "Patient asleep"
+    }
+  }
+]

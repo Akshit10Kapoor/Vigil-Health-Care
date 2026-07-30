@@ -1,0 +1,46 @@
+hospital:
+  id: "HOSP_CITY_01"
+  name: "City Care Super Speciality Hospital"
+  nabh_accreditation_id: "NABH-2026-CC01"
+  timezone: "Asia/Kolkata"
+
+wards:
+  - id: "ICU_01"
+    name: "Intensive Care Unit (ICU)"
+    acuity_level: "high"
+    capacity: 12
+  - id: "SURG_3A"
+    name: "Surgical Ward 3A"
+    acuity_level: "medium"
+    capacity: 20
+  - id: "GEN_2B"
+    name: "General Ward 2B"
+    acuity_level: "low"
+    capacity: 30
+  - id: "PED_ICU"
+    name: "Pediatric ICU"
+    acuity_level: "high"
+    capacity: 8
+
+staff_roles:
+  - nurse
+  - ward_manager
+  - quality_team
+  - admin
+
+protocols:
+  nursing_round:
+    high_acuity_interval_minutes: 120
+    medium_acuity_interval_minutes: 240
+    low_acuity_interval_minutes: 480
+  consent_capture:
+    require_witness_for_high_risk: true
+  medication_order:
+    require_two_nurse_verification_for_high_alert: true
+
+initial_seed:
+  admin_user:
+    staff_id: "ADMIN_01"
+    full_name: "Hospital Quality Admin"
+    role: "admin"
+    password: "AdminPassword123!"

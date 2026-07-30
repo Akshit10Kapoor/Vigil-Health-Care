@@ -1,0 +1,38 @@
+wards:
+  ICU:
+    rules:
+      - rule_id: icu_vitals_2h
+        event_type: nursing_round
+        description: Vitals required every 2 hours in ICU
+        trigger: continuous
+        frequency_hours: 2
+        grace_period_mins: 15
+        required_fields:
+          - vitals
+
+  SURG:
+    rules:
+      - rule_id: pre_op_consent
+        event_type: consent_capture
+        description: Consent required before surgical procedures
+        trigger: pre_procedure
+        grace_period_mins: 0
+      - rule_id: surg_vitals_4h
+        event_type: nursing_round
+        description: Vitals required every 4 hours in Surgical ward
+        trigger: continuous
+        frequency_hours: 4
+        grace_period_mins: 30
+        required_fields:
+          - vitals
+
+  GEN:
+    rules:
+      - rule_id: gen_vitals_8h
+        event_type: nursing_round
+        description: Vitals required every 8 hours in General ward
+        trigger: continuous
+        frequency_hours: 8
+        grace_period_mins: 30
+        required_fields:
+          - vitals

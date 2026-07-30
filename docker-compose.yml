@@ -1,0 +1,54 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: vigil_postgres
+    restart: always
+    environment:
+      POSTGRES_DB: vigil_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgrespassword
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./backend/event_store/schema/init_db.sql:/docker-entrypoint-initdb.d/init_db.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d vigil_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: vigil_backend
+    restart: always
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgrespassword@db:5432/vigil_db
+      - SECRET_KEY=vigil_on_prem_secret_key_2026_super_secure
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./backend/uploads:/app/backend/uploads
+
+  mobile-app:
+    image: node:20-alpine
+    container_name: vigil_mobile_app
+    restart: always
+    working_dir: /app
+    volumes:
+      - ./mobile-app:/app
+    command: sh -c "npm install && npm run build && npx serve -s dist -l 3000"
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
