@@ -1,5 +1,7 @@
 # Vigil — Clinical Event Verification Prototype
 
+> 📖 **Looking to run this locally?** See the comprehensive [SETUP.md](file:///Users/akshitkapoor/Documents/Health%20Care/SETUP.md) for full Docker Compose & native setup instructions, workflow walk-throughs, and demo scenarios.
+
 **Vigil** is an on-premise continuous verification system for hospitals. It verifies that time-bound clinical actions (nursing rounds, informed consent capture, medication order documentation) actually happen on schedule, flags gaps in real time, and generates audit-evidence records for hospitals seeking or maintaining **NABH accreditation**.
 
 ---
@@ -81,8 +83,8 @@ Run the full stack with single command:
 docker-compose up --build
 ```
 
-- **Backend API:** `http://localhost:8000`
-- **Mobile Tablet Capture App:** `http://localhost:3000`
+- **Backend API & Swagger Docs:** `http://localhost:8000` / `http://localhost:8000/docs`
+- **Mobile Tablet Capture App (Docker):** `http://localhost:3001` (or `http://localhost:3000` when running via `npm run dev`)
 - **Postgres Event Store:** `localhost:5432`
 
 ---

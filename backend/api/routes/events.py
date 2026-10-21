@@ -47,7 +47,7 @@ def ingest_events(
             results.append(ItemIngestResult(
                 client_sync_id=sync_id,
                 status="duplicate",
-                event_id=existing.event_id,
+                event_id=str(existing.event_id) if existing.event_id else None,
                 error_message=None
             ))
             success_count += 1
