@@ -3,8 +3,8 @@ import { ShieldCheck, User, Lock, AlertCircle } from 'lucide-react';
 import { loginStaff } from '../services/auth_service';
 
 export default function Login({ onLoginSuccess }) {
-  const [staffId, setStaffId] = useState('NURSE_101');
-  const [password, setPassword] = useState('NursePassword123!');
+  const [staffId, setStaffId] = useState('ADMIN_01');
+  const [password, setPassword] = useState('AdminPassword123!');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
