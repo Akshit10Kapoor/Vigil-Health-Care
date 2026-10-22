@@ -1,24 +1,8 @@
-import os
-import pytest
 from fastapi.testclient import TestClient
 
-# Ensure test DB uses sqlite in memory or local test db
-os.environ["DATABASE_URL"] = "sqlite:///./test_vigil.db"
-
-from backend.main import app, seed_hospital_data
-from backend.event_store.database import Base, engine
+from backend.main import app
 
 client = TestClient(app)
-
-@pytest.fixture(autouse=True)
-def setup_test_db():
-    # Setup test tables and seed initial data
-    Base.metadata.create_all(bind=engine)
-    seed_hospital_data()
-    yield
-
-    # Cleanup after tests
-    # Base.metadata.drop_all(bind=engine)
 
 def test_root_endpoint():
     response = client.get("/")
@@ -30,7 +14,7 @@ def test_root_endpoint():
 def test_auth_login_success():
     response = client.post(
         "/api/v1/auth/login",
-        json={"staff_id": "NURSE_101", "password": "NursePassword123!"}
+        json={"staff_id": "NURSE_101", "password": "TestNursePassword123!"}
     )
     assert response.status_code == 200
     data = response.json()
@@ -128,6 +112,25 @@ def test_batch_event_ingestion_and_idempotency():
     assert retry_by_sync["sync_test_002"]["status"] == "duplicate"
 
 def test_derived_latest_rounds_view():
+    ingest_res = client.post("/api/v1/events/ingest", json={
+        "events": [{
+            "client_sync_id": "sync_view_001",
+            "event_type": "nursing_round",
+            "patient_id": "PAT_1001",
+            "ward_id": "ICU_01",
+            "bed_number": "Bed-01",
+            "staff_id": "NURSE_101",
+            "device_timestamp": "2026-07-30T16:30:00+05:30",
+            "payload": {
+                "vitals": {"bp": "118/76", "spo2": 98, "pulse": 74},
+                "position_change": "Supine",
+                "iv_site_check": "Clean"
+            }
+        }]
+    })
+    assert ingest_res.status_code == 200, ingest_res.text
+    assert ingest_res.json()["success_count"] == 1
+
     res = client.get("/api/v1/events/views/latest-rounds?ward_id=ICU_01")
     assert res.status_code == 200
     rounds = res.json()
@@ -136,9 +139,16 @@ def test_derived_latest_rounds_view():
     assert patient_round is not None
     assert patient_round["payload"]["vitals"]["spo2"] == 98
 
-def test_phase1_stubs():
-    gaps_res = client.get("/api/v1/gaps")
-    assert gaps_res.status_code == 501
+def test_gap_and_evidence_endpoints(nurse_headers):
+    gaps_res = client.get("/api/v1/gaps/", headers=nurse_headers)
+    assert gaps_res.status_code == 200
+    assert isinstance(gaps_res.json(), list)
 
-    evidence_res = client.get("/api/v1/evidence")
-    assert evidence_res.status_code == 501
+    evidence_res = client.get("/api/v1/evidence/", headers=nurse_headers)
+    assert evidence_res.status_code == 200
+    assert isinstance(evidence_res.json(), list)
+
+
+def test_gap_and_evidence_endpoints_require_auth():
+    assert client.get("/api/v1/gaps/").status_code == 401
+    assert client.get("/api/v1/evidence/").status_code == 401

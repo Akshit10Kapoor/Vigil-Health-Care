@@ -15,13 +15,26 @@ class EvidenceAgent:
     
     def __init__(self):
         self.llm_client = LLMClient()
-        self.chapter_map = self._load_chapter_map()
-        
-    def _load_chapter_map(self) -> Dict[str, Any]:
+        standards = self._load_nabh_standards()
+        self.edition = standards.get("edition", "6th")
+        self.chapters = standards.get("chapters", {})
+        self.chapter_map = standards.get("event_map", standards)
+
+    def _load_nabh_standards(self) -> Dict[str, Any]:
         if not os.path.exists(MAP_PATH):
             return {}
         with open(MAP_PATH, "r") as f:
             return json.load(f)
+
+    def _map_event_to_nabh(self, event_type: str) -> Dict[str, Any]:
+        mapping = self.chapter_map.get(event_type, {"chapter": "GEN", "element": "General"})
+        chapter_code = mapping.get("chapter")
+        chapter = self.chapters.get(chapter_code, {})
+        return {
+            **mapping,
+            "chapter_name": chapter.get("name", mapping.get("element")),
+            "edition": self.edition,
+        }
 
     def process_closed_gaps(self, db: Session):
         """
@@ -48,7 +61,7 @@ class EvidenceAgent:
                 
             # 1. Structure against NABH chapter
             event_type = gap_details.get("event_type", "unknown")
-            nabh_mapping = self.chapter_map.get(event_type, {"chapter": "GEN", "element": "General"})
+            nabh_mapping = self._map_event_to_nabh(event_type)
             
             # 2. LLM Drafts CAPA
             # We would normally query past history to pass into the LLM, simulating a few past events here.

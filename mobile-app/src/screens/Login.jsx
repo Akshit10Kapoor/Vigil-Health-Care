@@ -3,8 +3,8 @@ import { ShieldCheck, User, Lock, AlertCircle } from 'lucide-react';
 import { loginStaff } from '../services/auth_service';
 
 export default function Login({ onLoginSuccess }) {
-  const [staffId, setStaffId] = useState('ADMIN_01');
-  const [password, setPassword] = useState('AdminPassword123!');
+  const [staffId, setStaffId] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
@@ -82,9 +82,8 @@ export default function Login({ onLoginSuccess }) {
         </form>
 
         <div className="mt-8 pt-6 border-t border-[var(--border-subtle)] text-xs text-[var(--text-secondary)] text-center">
-          <p className="font-bold mb-2 uppercase tracking-wider text-[var(--text-muted)]">Demo Accounts</p>
-          <p className="mt-1 font-mono text-[var(--text-primary)]">Admin/Quality: <span className="font-semibold text-[var(--accent-teal)]">ADMIN_01</span> / AdminPassword123!</p>
-          <p className="mt-1 font-mono text-[var(--text-primary)]">Duty Nurse: <span className="font-semibold text-[var(--accent-teal)]">NURSE_101</span> / NursePassword123!</p>
+          <p className="font-bold mb-2 uppercase tracking-wider text-[var(--text-muted)]">Access</p>
+          <p className="mt-1">Use the staff ID and password provisioned by your hospital administrator.</p>
         </div>
       </div>
     </div>

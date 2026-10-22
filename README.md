@@ -2,14 +2,14 @@
 
 > 📖 **Looking to run this locally?** See the comprehensive [SETUP.md](file:///Users/akshitkapoor/Documents/Health%20Care/SETUP.md) for full Docker Compose & native setup instructions, workflow walk-throughs, and demo scenarios.
 
-**Vigil** is an on-premise continuous verification system for hospitals. It verifies that time-bound clinical actions (nursing rounds, informed consent capture, medication order documentation) actually happen on schedule, flags gaps in real time, and generates audit-evidence records for hospitals seeking or maintaining **NABH accreditation**.
+**Vigil** is an on-premise continuous verification system for hospitals. It verifies that time-bound clinical actions (nursing rounds, informed consent capture, medication order documentation) actually happen on schedule, flags gaps in real time, and generates audit-evidence records for hospitals seeking or maintaining **NABH accreditation** (6th Edition, effective 1 January 2025).
 
 ---
 
 ## Architecture & Principles
 
 1. **On-Prem Default:** Runs entirely inside the hospital's local network (LAN).
-2. **Append-Only Event Store:** Historical clinical actions are never mutated or overwritten. Current state is computed on demand via SQL derived views.
+2. **Append-Only, Tamper-Evident Event Store:** Historical clinical actions are never mutated or overwritten. Each event carries a SHA-256 hash linked to the previous event, a database trigger advances a persisted chain head, and PostgreSQL denies `UPDATE`/`DELETE`/`TRUNCATE` to the API role. Current state is computed on demand via SQL derived views.
 3. **Deterministic Core Logic:** Clinical rules and schedules are deterministic code driven by config; LLMs structure language without deciding clinical thresholds.
 4. **Configuration-Driven:** Ward lists, staff roles, and protocol cadences are managed in `backend/config/hospital_settings.yaml`.
 
@@ -29,6 +29,8 @@
   - **Per-Event Batch Ingestion (`POST /api/v1/events/ingest`):** Itemized processing where individual event failures return error details without blocking valid batch items.
   - **Idempotency:** Unique `client_sync_id` prevents duplicate inserts upon network re-sync.
   - **Reference Tables & Integrity:** `staff`, `patients`, and `wards` tables validate foreign keys during event ingestion.
+  - **Tamper-Evident Chain:** `prev_hash`/`event_hash` on every event, an `event_chain_state` head, PostgreSQL append-only triggers, and `GET/POST /api/v1/integrity/chain` verification endpoints for admin/quality roles.
+  - **Additive Corrections:** Corrections are new `clinical_event_correction` events with `corrects_event_id` and `correction_reason`; originals are never edited.
   - **Lightweight Signature Storage:** Digital canvas signatures are saved as image file blobs (`backend/uploads/signatures/`), keeping JSONB payloads lightweight.
   - **Timezone Preservation:** Preserves `device_timestamp` with offset (`+05:30`) alongside server `ingested_at` UTC timestamp.
   - **Derived SQL Views:** `v_latest_nursing_rounds`, `v_patient_consents`, `v_medication_order_docs`.
@@ -69,9 +71,7 @@ npm run dev
 
 Open tablet capture app in browser at [http://localhost:3000](http://localhost:3000).
 
-Demo Login Credentials:
-- **Staff ID:** `NURSE_101`
-- **Password:** `NursePassword123!`
+Demo login uses `NURSE_101` with the password you set in `VIGIL_SEED_DEMO_PASSWORD` (see [SETUP.md](SETUP.md)). No default password ships with the repository.
 
 ---
 
@@ -85,7 +85,7 @@ docker-compose up --build
 
 - **Backend API & Swagger Docs:** `http://localhost:8000` / `http://localhost:8000/docs`
 - **Mobile Tablet Capture App (Docker):** `http://localhost:3001` (or `http://localhost:3000` when running via `npm run dev`)
-- **Postgres Event Store:** `localhost:5432`
+- **Postgres Event Store:** internal Docker network only (use `docker compose exec db psql ...`)
 
 ---
 
@@ -95,7 +95,8 @@ docker-compose up --build
 - [x] **Batch Sync & Itemized Errors:** Reconnecting network and triggering sync posts batch to `/api/v1/events/ingest`. If 1 event has an invalid patient ID, valid events succeed and the invalid event is marked as `failed` with error reason.
 - [x] **Idempotency:** Re-triggering sync returns `status: "duplicate"` without double-inserting records.
 - [x] **Derived Views:** Fetching `/api/v1/events/views/latest-rounds` returns latest patient vitals calculated dynamically from append-only events.
-- [x] **Phase 1 Stubs:** `/api/v1/gaps` and `/api/v1/evidence` return `501 Not Implemented`.
+- [x] **Gap & Evidence APIs:** Authenticated `/api/v1/gaps` and `/api/v1/evidence` endpoints return derived gaps and CAPA drafts from the agent audit log.
+- [x] **Integrity Verification:** `python -m backend.scripts.verify_integrity` confirms the hash chain and chain head; PostgreSQL blocks direct `UPDATE`, `DELETE`, and `TRUNCATE` on clinical events.
 
 ---
 

@@ -6,16 +6,17 @@ services:
     container_name: vigil_postgres
     restart: always
     environment:
-      POSTGRES_DB: vigil_db
-      POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgrespassword
-    ports:
-      - "5432:5432"
+      POSTGRES_DB: ${POSTGRES_DB:-vigil_db}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      VIGIL_APP_DB_ROLE: ${VIGIL_APP_DB_ROLE:-vigil_app}
+      VIGIL_APP_DB_PASSWORD: ${VIGIL_APP_DB_PASSWORD:?Set VIGIL_APP_DB_PASSWORD in .env}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./backend/event_store/schema/init_db.sql:/docker-entrypoint-initdb.d/init_db.sql
+      - ./backend/event_store/schema/init_db.sql:/docker-entrypoint-initdb.d/init_db.sql:ro
+      - ./backend/event_store/schema/zz_create_app_role.sh:/docker-entrypoint-initdb.d/zz_create_app_role.sh:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres -d vigil_db"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-vigil_db}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -27,8 +28,19 @@ services:
     container_name: vigil_backend
     restart: always
     environment:
-      - DATABASE_URL=postgresql://postgres:postgrespassword@db:5432/vigil_db
-      - SECRET_KEY=vigil_on_prem_secret_key_2026_super_secure
+      - DATABASE_URL=postgresql://${VIGIL_APP_DB_ROLE:-vigil_app}:${VIGIL_APP_DB_PASSWORD:?Set VIGIL_APP_DB_PASSWORD in .env}@db:5432/${POSTGRES_DB:-vigil_db}
+      - MIGRATION_DATABASE_URL=postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@db:5432/${POSTGRES_DB:-vigil_db}
+      - VIGIL_APP_DB_ROLE=${VIGIL_APP_DB_ROLE:-vigil_app}
+      - VIGIL_APP_DB_PASSWORD=${VIGIL_APP_DB_PASSWORD:?Set VIGIL_APP_DB_PASSWORD in .env}
+      - SECRET_KEY=${SECRET_KEY:?Set SECRET_KEY in .env}
+      - VIGIL_ENV=${VIGIL_ENV:-production}
+      - VIGIL_AUTO_SEED=${VIGIL_AUTO_SEED:-false}
+      - VIGIL_SEED_ADMIN_PASSWORD=${VIGIL_SEED_ADMIN_PASSWORD:-}
+      - VIGIL_SEED_DEMO_USERS=${VIGIL_SEED_DEMO_USERS:-false}
+      - VIGIL_SEED_DEMO_PASSWORD=${VIGIL_SEED_DEMO_PASSWORD:-}
+      - VIGIL_SEED_DEMO_PATIENTS=${VIGIL_SEED_DEMO_PATIENTS:-false}
+      - VIGIL_INTEGRITY_CHECK_INTERVAL_SECONDS=${VIGIL_INTEGRITY_CHECK_INTERVAL_SECONDS:-3600}
+      - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:3001}
     ports:
       - "8000:8000"
     depends_on:

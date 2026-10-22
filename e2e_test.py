@@ -1,14 +1,20 @@
+import os
 import requests
 import json
 import time
 
-BASE_URL = "http://localhost:8000/api/v1"
+BASE_URL = os.getenv("VIGIL_BASE_URL", "http://localhost:8000/api/v1")
+STAFF_ID = os.getenv("VIGIL_E2E_STAFF_ID", "NURSE_101")
+PASSWORD = os.getenv("VIGIL_E2E_PASSWORD") or os.getenv("VIGIL_SEED_DEMO_PASSWORD", "")
 
 def run_e2e_test():
+    if not PASSWORD:
+        raise SystemExit("Set VIGIL_E2E_PASSWORD or VIGIL_SEED_DEMO_PASSWORD before running the e2e test")
+
     print("Starting e2e test against Postgres backend...")
     
     # 1. Login to get token
-    login_data = {"staff_id": "NURSE_101", "password": "NursePassword123!"}
+    login_data = {"staff_id": STAFF_ID, "password": PASSWORD}
     resp = requests.post(f"{BASE_URL}/auth/login", json=login_data)
     if resp.status_code != 200:
         print("Login failed!", resp.text)
@@ -22,7 +28,7 @@ def run_e2e_test():
         "event_type": "nursing_round",
         "patient_id": "PAT_1001",
         "ward_id": "ICU_01",
-        "staff_id": "NURSE_101",
+        "staff_id": STAFF_ID,
         "device_timestamp": "2023-01-01T10:00:00Z", # Very old, will trigger overdue gap immediately
         "payload": {},
         "raw_note": "Patient refused blood pressure check, said they wanted to sleep."

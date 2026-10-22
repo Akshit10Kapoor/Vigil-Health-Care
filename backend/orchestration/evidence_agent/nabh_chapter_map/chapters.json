@@ -1,14 +1,119 @@
 {
-  "round": {
-    "chapter": "COP",
-    "element": "Care of Patients"
+  "edition": "6th",
+  "effective_from": "2025-01-01",
+  "source": "https://portal.nabh.co/images/Standards/NABH%20Hospital%20Accreditation%20Standard%206th%20Edition%20January%202025.pdf",
+  "totals": {
+    "standards": 100,
+    "objective_elements": 639,
+    "core": 105,
+    "commitment": 457,
+    "achievement": 60,
+    "excellence": 17
   },
-  "consent": {
-    "chapter": "PRE",
-    "element": "Patient Rights and Education"
+  "chapters": {
+    "AAC": {
+      "name": "Access, Assessment and Continuity of Care",
+      "standards": 13,
+      "objective_elements": 87,
+      "core": 6,
+      "commitment": 68,
+      "achievement": 9,
+      "excellence": 4
+    },
+    "COP": {
+      "name": "Care of Patients",
+      "standards": 20,
+      "objective_elements": 136,
+      "core": 13,
+      "commitment": 107,
+      "achievement": 12,
+      "excellence": 4
+    },
+    "MOM": {
+      "name": "Management of Medication",
+      "standards": 11,
+      "objective_elements": 68,
+      "core": 13,
+      "commitment": 48,
+      "achievement": 6,
+      "excellence": 1
+    },
+    "PRE": {
+      "name": "Patient Rights and Education",
+      "standards": 8,
+      "objective_elements": 52,
+      "core": 12,
+      "commitment": 32,
+      "achievement": 7,
+      "excellence": 1
+    },
+    "IPC": {
+      "name": "Infection Prevention and Control",
+      "standards": 8,
+      "objective_elements": 49,
+      "core": 13,
+      "commitment": 33,
+      "achievement": 3,
+      "excellence": 0
+    },
+    "PSQ": {
+      "name": "Patient Safety and Quality Improvement",
+      "standards": 7,
+      "objective_elements": 46,
+      "core": 8,
+      "commitment": 28,
+      "achievement": 7,
+      "excellence": 3
+    },
+    "ROM": {
+      "name": "Responsibility of Management",
+      "standards": 6,
+      "objective_elements": 37,
+      "core": 4,
+      "commitment": 23,
+      "achievement": 8,
+      "excellence": 2
+    },
+    "FMS": {
+      "name": "Facility Management and Safety",
+      "standards": 7,
+      "objective_elements": 43,
+      "core": 11,
+      "commitment": 29,
+      "achievement": 2,
+      "excellence": 1
+    },
+    "HRM": {
+      "name": "Human Resource Management",
+      "standards": 13,
+      "objective_elements": 76,
+      "core": 16,
+      "commitment": 56,
+      "achievement": 4,
+      "excellence": 0
+    },
+    "IMS": {
+      "name": "Information Management System",
+      "standards": 7,
+      "objective_elements": 45,
+      "core": 9,
+      "commitment": 33,
+      "achievement": 2,
+      "excellence": 1
+    }
   },
-  "med_order": {
-    "chapter": "MOM",
-    "element": "Management of Medication"
+  "event_map": {
+    "nursing_round": {
+      "chapter": "COP",
+      "element": "Care of Patients"
+    },
+    "consent_capture": {
+      "chapter": "PRE",
+      "element": "Patient Rights and Education"
+    },
+    "medication_order_documentation": {
+      "chapter": "MOM",
+      "element": "Management of Medication"
+    }
   }
 }

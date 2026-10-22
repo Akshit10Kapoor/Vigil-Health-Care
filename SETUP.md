@@ -12,7 +12,7 @@ The entire stack is containerized with **Docker Compose**, allowing you to spin 
 2. [Prerequisites](#prerequisites)
 3. [Quickstart: Running with Docker Compose](#quickstart-running-with-docker-compose)
 4. [Service Endpoints & Access URLs](#service-endpoints--access-urls)
-5. [Default Login Credentials](#default-login-credentials)
+5. [Seeded Credentials (Local Development Only)](#seeded-credentials-local-development-only)
 6. [Populating Demo Data & Scenarios](#populating-demo-data--scenarios)
 7. [Operating the Application (Core Workflows)](#operating-the-application-core-workflows)
    - [1. Ward Dashboard & Monitoring](#1-ward-dashboard--monitoring)
@@ -56,7 +56,7 @@ Vigil is composed of three interconnected services defined in [docker-compose.ym
 │                                              ┌──────────────────────────────┐   │
 │                                              │ container: vigil_postgres    │   │
 │                                              │ (postgres:16-alpine)         │   │
-│                                              │ Port: 5432:5432              │   │
+│                                              │ Internal network only        │   │
 │                                              │ Volume: postgres_data        │   │
 │                                              └──────────────────────────────┘   │
 └─────────────────────────────────────────────────────────────────────────────────┘
@@ -64,7 +64,7 @@ Vigil is composed of three interconnected services defined in [docker-compose.ym
 
 | Service | Container Name | Port Mapping | Description |
 | :--- | :--- | :--- | :--- |
-| **Database** | `vigil_postgres` | `5432:5432` | PostgreSQL 16 store with append-only event schema, FK constraints, and derived SQL views. Initialized via `backend/event_store/schema/init_db.sql`. |
+| **Database** | `vigil_postgres` | Internal only | PostgreSQL 16 store with an append-only, hash-chained clinical event schema, FK constraints, append-only triggers, and derived SQL views. Initialized via `backend/event_store/schema/init_db.sql`; `zz_create_app_role.sh` provisions the least-privilege `vigil_app` role. Not published to the host by default. |
 | **Backend API** | `vigil_backend` | `8000:8000` | FastAPI application providing authentication, batch ingestion, LangGraph multi-agent pipeline (Expectation, GapDetection, Evidence), and static signature blob storage. |
 | **Mobile App (PWA)** | `vigil_mobile_app` | `3001:3000` | Offline-first Progressive Web App built with React, Vite, TailwindCSS, and Workbox Service Worker. Stores offline events in client-side IndexedDB. |
 
@@ -88,7 +88,19 @@ Before starting, ensure you have installed:
 ### 1. Start the Docker Daemon
 Launch the **Docker Desktop** application on your machine and confirm it is running.
 
-### 2. Launch the Application Stack
+### 2. Configure Secrets
+Vigil has no default credentials. Copy the example environment file and fill in strong, unique values:
+
+```bash
+cp .env.example .env
+python -c "import secrets; print(secrets.token_urlsafe(32))"
+```
+
+Set at least `POSTGRES_PASSWORD`, `VIGIL_APP_DB_PASSWORD`, and `SECRET_KEY`. To bootstrap the first admin account, set `VIGIL_SEED_ADMIN_PASSWORD` and `VIGIL_AUTO_SEED=true` for the first startup, then set `VIGIL_AUTO_SEED=false` again.
+
+The API connects as the least-privilege `vigil_app` role. It can append clinical events but cannot `UPDATE`, `DELETE`, or `TRUNCATE` them. Use a URL-safe password (for example from `secrets.token_urlsafe`).
+
+### 3. Launch the Application Stack
 From the project root directory, run:
 
 ```bash
@@ -102,11 +114,11 @@ docker compose up --build
 
 Docker Compose will automatically:
 1. Start PostgreSQL and wait for its healthcheck (`pg_isready`) to pass.
-2. Execute the initial SQL schema migration (`init_db.sql`).
-3. Build and launch the FastAPI backend, executing startup seeding for wards, users, and sample patients.
+2. Execute the initial SQL schema (`init_db.sql`) and provision the `vigil_app` role (`zz_create_app_role.sh`).
+3. Build and launch the FastAPI backend as `vigil_app`. Seeding is opt-in via `VIGIL_AUTO_SEED`; demo staff/patients require additional explicit flags. The backend refuses to start unless the integrity schema and append-only triggers are present, and it verifies the full hash chain at startup. If a later scheduled verification fails, clinical event ingestion is halted until a verification succeeds.
 4. Build the PWA production assets and serve them via Node.
 
-### 3. Check Container Status
+### 4. Check Container Status
 Verify that all 3 containers are healthy and running:
 
 ```bash
@@ -118,7 +130,7 @@ You should see:
 - `vigil_backend` (Up)
 - `vigil_mobile_app` (Up)
 
-### 4. View Container Logs
+### 5. View Container Logs
 To follow live logs from all services:
 
 ```bash
@@ -130,7 +142,7 @@ Or inspect a specific container (e.g. backend):
 docker compose logs -f backend
 ```
 
-### 5. Stop the Application
+### 6. Stop the Application
 To stop all services:
 
 ```bash
@@ -153,20 +165,28 @@ Once running, access the services using these URLs:
 | **Tablet Capture PWA** | [http://localhost:3001](http://localhost:3001) | Nurse & Admin clinical portal (rounds, consent, meds, gaps, evidence) |
 | **Backend API Docs** | [http://localhost:8000/docs](http://localhost:8000/docs) | Interactive Swagger UI for testing API routes |
 | **API Healthcheck** | [http://localhost:8000/](http://localhost:8000/) | System status JSON response |
-| **PostgreSQL DB** | `localhost:5432` | Database: `vigil_db`, User: `postgres`, Password: `postgrespassword` |
+| **PostgreSQL DB** | Internal Docker network only | Use `docker compose exec db psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"` from the project root. For native development, see the loopback-only override below. |
 
 ---
 
-## Default Login Credentials
+## Seeded Credentials (Local Development Only)
 
-The database is pre-seeded with test users configured in [hospital_settings.yaml](file:///Users/akshitkapoor/Documents/Health%20Care/backend/config/hospital_settings.yaml):
+Vigil no longer ships default passwords. Staff records are seeded only when you opt in via environment variables:
+
+- `VIGIL_SEED_ADMIN_PASSWORD` bootstraps `ADMIN_01`.
+- `VIGIL_SEED_DEMO_USERS=true` plus `VIGIL_SEED_DEMO_PASSWORD` bootstraps the demo nurses.
+- `VIGIL_SEED_DEMO_PATIENTS=true` adds sample patients.
+
+Staff IDs and ward assignments live in [hospital_settings.yaml](file:///Users/akshitkapoor/Documents/Health%20Care/backend/config/hospital_settings.yaml); passwords come only from environment variables.
 
 | Role | Staff ID | Password | Assigned Ward | Capabilities |
 | :--- | :--- | :--- | :--- | :--- |
-| **ICU Duty Nurse** | `NURSE_101` | `NursePassword123!` | Intensive Care Unit (`ICU_01`) | Log rounds, record vitals, capture consent, administer high-alert meds |
-| **Surgical Nurse** | `NURSE_102` | `NursePassword123!` | Surgical Ward 3A (`SURG_3A`) | Surgical rounds, pre-op checklist, consent capture |
-| **ICU Secondary Nurse** | `NURSE_103` | `NursePassword123!` | Intensive Care Unit (`ICU_01`) | Co-signing high-alert medication dual verification |
-| **Hospital Quality Admin** | `ADMIN_01` | `AdminPassword123!` | *All Wards* | Access gap analysis, trigger verification pipelines, export NABH evidence |
+| **ICU Duty Nurse** | `NURSE_101` | value of `VIGIL_SEED_DEMO_PASSWORD` | Intensive Care Unit (`ICU_01`) | Log rounds, record vitals, capture consent, administer high-alert meds |
+| **Surgical Nurse** | `NURSE_102` | value of `VIGIL_SEED_DEMO_PASSWORD` | Surgical Ward 3A (`SURG_3A`) | Surgical rounds, pre-op checklist, consent capture |
+| **ICU Secondary Nurse** | `NURSE_103` | value of `VIGIL_SEED_DEMO_PASSWORD` | Intensive Care Unit (`ICU_01`) | Co-signing high-alert medication dual verification |
+| **Hospital Quality Admin** | `ADMIN_01` | value of `VIGIL_SEED_ADMIN_PASSWORD` | *All Wards* | Access gap analysis, trigger verification pipelines, export NABH evidence |
+
+Never enable the demo flags in a real hospital deployment.
 
 ---
 
@@ -175,9 +195,11 @@ The database is pre-seeded with test users configured in [hospital_settings.yaml
 To populate realistic clinical records and simulated compliance gaps (e.g., overdue ICU vitals, missing surgical consent):
 
 ### Running the Seed Script via Docker:
+The script drops and recreates the schema, so it requires an explicit opt-in and a demo password:
 ```bash
-docker compose exec backend python backend/scripts/seed_comprehensive_demo.py
+docker compose exec -e VIGIL_ALLOW_DEMO_RESET=1 backend python backend/scripts/seed_comprehensive_demo.py
 ```
+It reads `VIGIL_SEED_DEMO_PASSWORD` (and optionally `VIGIL_SEED_ADMIN_PASSWORD`) from the backend environment.
 
 ### What this script configures:
 - Cleans and re-initializes database schema.
@@ -196,7 +218,7 @@ docker compose exec backend python backend/scripts/seed_comprehensive_demo.py
 
 ### 1. Ward Dashboard & Monitoring
 1. Open [http://localhost:3001](http://localhost:3001) in Chrome, Edge, or Safari.
-2. Sign in as `ADMIN_01` (Password: `AdminPassword123!`).
+2. Sign in as `ADMIN_01` using the password you set in `VIGIL_SEED_ADMIN_PASSWORD`.
 3. View the **Overview**:
    - Total patients admitted across wards.
    - Active Urgent & Warning clinical flags.
@@ -204,7 +226,7 @@ docker compose exec backend python backend/scripts/seed_comprehensive_demo.py
    - Quick navigation shortcuts via keyboard (`Cmd+K` or `Ctrl+K` opens the Command Palette).
 
 ### 2. Nursing Rounds & Vitals Logging
-1. Sign in as `NURSE_101` (`NursePassword123!`).
+1. Sign in as `NURSE_101` using the password you set in `VIGIL_SEED_DEMO_PASSWORD`.
 2. Navigate to **Nursing Rounds** in the sidebar.
 3. Select a patient (e.g. `PAT_1001 - Ramesh Verma`).
 4. Enter clinical readings:
@@ -253,7 +275,7 @@ Vigil is designed for hospital Wi-Fi dead-zones:
 
 ### 7. NABH Evidence & CAPA Pack Export
 1. Navigate to **Evidence Export**.
-2. View generated corrective action recommendations structured according to **NABH 5th Edition Chapters**:
+2. View generated corrective action recommendations structured according to the **NABH 6th Edition Chapters** (effective 1 January 2025):
    - **Chapter COP (Care of Patients):** Round compliance and escalation records.
    - **Chapter AAC (Access, Assessment, and Continuity):** Consent verification.
    - **Chapter MOM (Management of Medication):** High-alert dual-nurse co-signing logs.
@@ -291,6 +313,57 @@ To run backend unit and integration tests:
 PYTHONPATH=. ./venv/bin/pytest backend/tests/ -v
 ```
 
+By default the suite uses SQLite. To run the same tests against PostgreSQL (recommended before release), point `TEST_DATABASE_URL` at a disposable database whose name contains `test`:
+
+```bash
+createdb -h 127.0.0.1 -U postgres vigil_integrity_test
+TEST_DATABASE_URL=postgresql://postgres@127.0.0.1:5432/vigil_integrity_test \
+PYTHONPATH=. ./venv/bin/pytest backend/tests/ -v
+```
+
+On PowerShell:
+
+```powershell
+$env:TEST_DATABASE_URL='postgresql://postgres@127.0.0.1:5432/vigil_integrity_test'
+python -m pytest backend/tests/ -q
+```
+
+The test harness refuses to reset a database unless its name contains `test`. The PostgreSQL run exercises concurrent appends, append-only enforcement, correction events, and app-role grants; SQLite skips only those PostgreSQL-specific tests.
+
+### 4. Verify the Hash Chain
+
+Run the verifier against the configured database:
+
+```bash
+python -m backend.scripts.verify_integrity
+python -m backend.scripts.verify_integrity --record   # append result to chain_verification_logs
+```
+
+It exits non-zero and reports the first invalid event position if the chain, links, or persisted head do not match. The API runs the same verification at startup; a failed periodic check halts new clinical event ingestion until a later check passes. Admin/quality users can also call:
+
+- `GET /api/v1/integrity/chain` - current head, state, and trigger status.
+- `POST /api/v1/integrity/chain/verify` - full verification, optionally recorded.
+
+### 5. Migrate an Existing Database
+
+Existing databases must be migrated before running the integrity-enabled backend. Docker init scripts run only on a fresh volume; a pre-existing `postgres_data` volume needs this migration. The migration backfills hashes in place, refuses to proceed if an existing hashed prefix is invalid, installs triggers, and is safe to re-run:
+
+```bash
+MIGRATION_DATABASE_URL=postgresql://postgres@127.0.0.1:5432/vigil_db \
+python -m backend.scripts.migrate_integrity
+python -m backend.scripts.migrate_integrity --check
+```
+
+To create/update the least-privilege application role as part of the migration:
+
+```bash
+MIGRATION_DATABASE_URL=postgresql://postgres@127.0.0.1:5432/vigil_db \
+VIGIL_APP_DB_PASSWORD='<url-safe-password>' \
+python -m backend.scripts.migrate_integrity --create-app-role
+```
+
+Then point the backend's `DATABASE_URL` at `vigil_app`. Do not run `init_db.sql` against an existing populated database; it intentionally refuses to seed genesis over existing events.
+
 ---
 
 ## Alternative: Native Local Development (Without Docker)
@@ -302,6 +375,13 @@ Ensure PostgreSQL is running locally on port 5432 with a database named `vigil_d
 ```bash
 createdb vigil_db
 psql -d vigil_db -f backend/event_store/schema/init_db.sql
+# Fresh database only; for an existing populated database use migrate_integrity.py
+```
+
+If you prefer the Dockerized database while running the backend natively, publish it on loopback only:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d db
 ```
 
 ### 2. Run Backend API
@@ -312,6 +392,15 @@ source venv/bin/activate
 
 # Install dependencies
 pip install -r backend/requirements.txt
+
+# Development environment and bootstrap credentials
+export VIGIL_ENV=development
+export DATABASE_URL=postgresql://postgres:YOUR_DB_PASSWORD@127.0.0.1:5432/vigil_db
+export SECRET_KEY="$(python -c 'import secrets; print(secrets.token_urlsafe(32))')"
+export VIGIL_SEED_ADMIN_PASSWORD='choose-a-strong-admin-password'
+export VIGIL_SEED_DEMO_USERS=true
+export VIGIL_SEED_DEMO_PASSWORD='choose-a-strong-demo-password'
+export VIGIL_SEED_DEMO_PATIENTS=true
 
 # Start backend with auto-reload
 PYTHONPATH=. uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
@@ -332,23 +421,27 @@ The PWA will launch at [http://localhost:3000](http://localhost:3000).
 ## Configuration & Customization
 
 ### 1. Environment Variables (`.env`)
-Create or edit `.env` in the root directory:
+Copy `.env.example` to `.env` in the root directory. Relevant variables:
 
 ```env
-# Database Connection
-DATABASE_URL=postgresql://postgres:postgrespassword@localhost:5432/vigil_db
+POSTGRES_DB=vigil_db
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=<strong random value>
+VIGIL_APP_DB_ROLE=vigil_app
+VIGIL_APP_DB_PASSWORD=<url-safe random value>
+SECRET_KEY=<strong random value>
 
-# Security
-SECRET_KEY=vigil_on_prem_secret_key_2026_super_secure
-
-# Server Config
-HOST=0.0.0.0
-PORT=8000
-
-# Hospital Deployment Identity
-HOSPITAL_ID=HOSP_CITY_01
-HOSPITAL_NAME=City Care Super Speciality Hospital
+VIGIL_ENV=production
+VIGIL_AUTO_SEED=false
+VIGIL_SEED_ADMIN_PASSWORD=<one-time admin bootstrap password>
+VIGIL_SEED_DEMO_USERS=false
+VIGIL_SEED_DEMO_PASSWORD=
+VIGIL_SEED_DEMO_PATIENTS=false
+VIGIL_INTEGRITY_CHECK_INTERVAL_SECONDS=3600
+CORS_ORIGINS=http://localhost:3001
 ```
+
+`SECRET_KEY` is mandatory when `VIGIL_ENV=production`. The backend refuses to boot without it, and Postgres is not exposed to the host network by default. `VIGIL_INTEGRITY_CHECK_INTERVAL_SECONDS` controls the periodic background verification (Compose default: 3600 seconds; set `0` to disable).
 
 ### 2. Hospital Settings & Protocol Cadences
 Hospital protocols are defined in [backend/config/hospital_settings.yaml](file:///Users/akshitkapoor/Documents/Health%20Care/backend/config/hospital_settings.yaml):
@@ -377,7 +470,7 @@ Modifying these thresholds directly updates the rules evaluated by the `Expectat
 brew services stop postgresql   # macOS
 sudo service postgresql stop    # Linux
 ```
-Or edit [docker-compose.yml](file:///Users/akshitkapoor/Documents/Health%20Care/docker-compose.yml) to map to a different host port (e.g. `"5433:5432"`).
+Or, if you are using the loopback development override, change its host port in [docker-compose.dev.yml](file:///Users/akshitkapoor/Documents/Health%20Care/docker-compose.dev.yml). The default stack does not publish Postgres at all.
 
 ### Q: Port 3001 or 8000 is in use
 **Fix:** Identify and stop the occupying process:
@@ -390,6 +483,10 @@ Or change the host port mapping in [docker-compose.yml](file:///Users/akshitkapo
 ### Q: Cannot connect to the Docker daemon
 **Cause:** Docker Desktop is not started.
 **Fix:** Open **Docker Desktop** from your Applications / Start menu and wait for the status indicator to turn green.
+
+### Q: Backend refuses to start with an integrity error
+**Cause:** The database predates the hash-chain schema, triggers are missing, or the API role lacks grants.
+**Fix:** Run `python -m backend.scripts.migrate_integrity` with `MIGRATION_DATABASE_URL`, then rerun it with `--check`. Ensure `DATABASE_URL` uses the `vigil_app` role created by the migration or Docker init script. Never disable triggers to bypass this check.
 
 ### Q: Resetting the database from scratch
 To wipe all state and start completely fresh:

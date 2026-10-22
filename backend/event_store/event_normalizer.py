@@ -8,7 +8,7 @@ from backend.config.settings import settings
 
 class IngestedEventSchema(BaseModel):
     client_sync_id: str
-    event_id: Optional[str] = None
+    event_id: Optional[uuid.UUID] = None
     event_type: str
     patient_id: str
     ward_id: str
@@ -19,10 +19,17 @@ class IngestedEventSchema(BaseModel):
     payload: Dict[str, Any]
     raw_note: Optional[str] = None
     metadata: Optional[Dict[str, Any]] = None
+    corrects_event_id: Optional[uuid.UUID] = None
+    correction_reason: Optional[str] = None
 
     @field_validator("event_type")
     def validate_event_type(cls, v):
-        allowed = {"nursing_round", "consent_capture", "medication_order_documentation"}
+        allowed = {
+            "nursing_round",
+            "consent_capture",
+            "medication_order_documentation",
+            "clinical_event_correction",
+        }
         if v not in allowed:
             raise ValueError(f"Invalid event_type '{v}'. Allowed types: {allowed}")
         return v
@@ -60,7 +67,7 @@ def normalize_event(event_dict: Dict[str, Any]) -> Tuple[IngestedEventSchema, Di
     parsed = IngestedEventSchema(**event_dict)
     
     if not parsed.event_id:
-        parsed.event_id = str(uuid.uuid4())
+        parsed.event_id = uuid.uuid4()
         
     cleaned_payload, sig_ref = save_signature_image_if_present(parsed.event_id, parsed.payload)
     
